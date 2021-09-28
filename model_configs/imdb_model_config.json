@@ -1,0 +1,414 @@
+{
+    "env": {
+        "USE_GPU": 0
+    },
+
+    "dataset": {
+        "select_dataset": "sentiment",
+        "sst": {
+            "granularity": "2-class",
+            "transformer_model_name": "roberta-base",
+            "use_subtrees": false,
+            "proportion": 1,
+            "max_length": 500,
+            "noise_datapath": "none"
+        },
+        "sentiment": {
+            "datapath": "data/imdb/IMDB",
+            "noisy_datapath": "all",
+            "transformer_model_name": "roberta-base",
+            "max_length": 500
+        }
+    },
+
+    "text_model": {
+        "embedder": {
+            "model_name": "roberta-base",
+            "train_parameters": true
+        },
+        "encoder": {
+            "model_name": "roberta-base",
+            "dropout": 0.3
+        },
+        "classifier": {
+            "feedforward": {
+                "num_layers": 3,
+                "hidden_dims": [300, 150, 75],
+                "activations": "silu",
+                "dropout": 0.3
+            }
+        },
+        "optimizer": {
+            "select_optimizer": "adamw",
+            "lr": 1e-5
+        },
+        "scheduler": {
+            "select_scheduler": "reduce",
+            "training_steps": 6750,
+            "warmup_steps": 405
+        },
+        "criterions": {
+            "classification_criterion": "cross_entropy",
+            "contrastive_criterion": "consine_embedding"
+        },
+        "evaluation": "categorical",
+        "clip_grad": {
+            "is_clip": true,
+            "max_norm": 0.9,
+            "norm_type": 2
+        }
+    },
+
+    "reinforcer": {
+        "environment": {
+            "similarity_threshold": 0.8,
+            "maximize_target": "ib"
+        },
+
+        "augmenter": {
+            "synonyms": {
+                "synonyms_filepath": null
+            },
+            "select_augmenter": [0, 1, 2, 3],
+            "delete_augmenter": {
+                "magnitude": 0.1
+            },
+            "swap_augmenter": {
+                "magnitude": 0.1
+            },
+            "replace_augmenter": {
+                "magnitude": 0.1
+            },
+            "insert_augmenter": {
+                "magnitude": 0.1
+            },
+            "backtrans_augmenter": {
+                "from_model_name": "Helsinki-NLP/opus-mt-en-de",
+                "to_model_name": "Helsinki-NLP/opus-mt-de-en",
+                "device": "cuda",
+                "magnitude": 1
+            }
+        },
+
+        "policy": {
+            "feedforward": {
+                "num_layers": 3,
+                "hidden_dims": [384, 96],
+                "activations": "relu",
+                "dropout": 0.3
+            },
+
+            "optimizer": {
+                "select_optimizer": "adam",
+                "lr": 1e-4
+            }
+        },
+
+        "REINFORCE": {
+            "gamma": 0.90,
+            "clip_grad": 3,
+            "max_step": 6
+        }
+    },
+
+    "visualizer": {
+        "mode": "isomap",
+        "tsne": {
+            "col_names": [
+                "tsne_1",
+                "tsne_2",
+                "category"
+            ],
+            "n_components": 2,
+            "perplexity": [
+                5, 10, 15, 20, 30,
+                40, 50, 60, 70, 80,
+                90, 100, 110, 120, 130,
+                140, 150, 200, 300, 500,
+                750, 1000
+            ],
+            "n_iter": 1000,
+            "verbose": 1,
+            "save_fig_path": "model_record/visual/"
+        },
+        "isomap": {
+            "col_names": [
+                "isomap_1",
+                "isomap_2",
+                "category"
+            ],
+            "n_neighbors": 5,
+            "n_components": 2,
+            "n_jobs": 6,
+            "save_fig_path": "model_record/visual/isomap/"
+        }
+    },
+
+    "train_mode": {
+        "select_mode": 0,
+        "0": {
+            "text_trainer": {
+                "dataloader": {
+                    "train_batch_size": 32,
+                    "valid_batch_size": 200,
+                    "test_batch_size": 200,
+                    "shuffle": true
+                },
+                "accumulated_step": 1,
+                "epochs": 6,
+                "is_save": true
+            },
+            "reinforce_trainer": {
+                "dataloader": {
+                    "shuffle": true
+                },
+                "epochs": 1,
+                "is_save": true,
+                "is_writer": true,
+                "batch_size": 120
+            },
+            "augmented_instance_generator": {
+                "num_processor": 5,
+                "select_mode": "default",
+                "select_policy": [
+                    "model_record/reinforce_model_weights/policy30",
+                    "model_record/reinforce_model_weights/policy40",
+                    "model_record/reinforce_model_weights/policy50",
+                    "model_record/reinforce_model_weights/policy60",
+                    "model_record/reinforce_model_weights/policy70"
+                ],
+                "save_name": [
+                    "model_record/augments/augment30",
+                    "model_record/augments/augment40",
+                    "model_record/augments/augment50",
+                    "model_record/augments/augment60",
+                    "model_record/augments/augment70"
+                ]
+            },
+            "text_finetuner": {
+                "dataloader": {
+                    "train_batch_size": 16,
+                    "valid_batch_size": 66,
+                    "test_batch_size": 66,
+                    "shuffle": true
+                },
+                "accumulated_step": 30,
+                "epochs": 2,
+                "is_save": false,
+                "augmented_instance": [
+                    "model_record/augments/augment30",
+                    "model_record/augments/augment40",
+                    "model_record/augments/augment50",
+                    "model_record/augments/augment60",
+                    "model_record/augments/augment70"
+                ]
+            }
+        },
+        "1": {
+            "pretrained_text_model": {
+                "embedder": "model_record/text_model_weights/embedder.pkl",
+                "encoder": "model_record/text_model_weights/encoder.pkl",
+                "classifier": "model_record/text_model_weights/classifier.pkl"
+            },
+            "reinforce_trainer": {
+                "dataloader": {
+                    "shuffle": true
+                },
+                "epochs": 1,
+                "is_save": true,
+                "is_writer": true,
+                "batch_size": 600
+            },
+            "augmented_instance_generator": {
+                "num_processor": 3,
+                "select_mode": "default",
+                "select_policy": [
+                    "model_record/reinforce_model_weights/policy20",
+                    "model_record/reinforce_model_weights/policy25",
+                    "model_record/reinforce_model_weights/policy30",
+                    "model_record/reinforce_model_weights/policy35",
+                    "model_record/reinforce_model_weights/policy40",
+                    "model_record/reinforce_model_weights/policy45"
+                ],
+                "save_name": [
+                    "model_record/augments/augment20",
+                    "model_record/augments/augment25",
+                    "model_record/augments/augment30",
+                    "model_record/augments/augment35",
+                    "model_record/augments/augment40",
+                    "model_record/augments/augment45"
+                ]
+            },
+            "text_finetuner": {
+                "dataloader": {
+                    "train_batch_size": 4,
+                    "valid_batch_size": 60,
+                    "test_batch_size": 60,
+                    "shuffle": true
+                },
+                "accumulated_step": 8,
+                "epochs": 6,
+                "is_save": true,
+                "augmented_instance": [
+                    "model_record/augments/augment20",
+                    "model_record/augments/augment25",
+                    "model_record/augments/augment30",
+                    "model_record/augments/augment35",
+                    "model_record/augments/augment40",
+                    "model_record/augments/augment45"
+                ]
+            }
+        },
+        "2": {
+            "pretrained_text_model": {
+                "embedder": "model_record/text_model_weights/embedder.pkl",
+                "encoder": "model_record/text_model_weights/encoder.pkl",
+                "classifier": "model_record/text_model_weights/classifier.pkl"
+            },
+            "augmented_instance_generator": {
+                "num_processor": 5,
+                "select_mode": "default",
+                "select_policy": [
+                    "model_record/reinforce_model_weights/policy20",
+                    "model_record/reinforce_model_weights/policy30",
+                    "model_record/reinforce_model_weights/policy40",
+                    "model_record/reinforce_model_weights/policy50",
+                    "model_record/reinforce_model_weights/policy60"
+                ],
+                "save_name": [
+                    "model_record/augments/augment20",
+                    "model_record/augments/augment30",
+                    "model_record/augments/augment40",
+                    "model_record/augments/augment50",
+                    "model_record/augments/augment60"
+                ]
+            },
+            "text_finetuner": {
+                "dataloader": {
+                    "train_batch_size": 16,
+                    "valid_batch_size": 66,
+                    "test_batch_size": 66,
+                    "shuffle": true
+                },
+                "accumulated_step": 2,
+                "epochs": 6,
+                "is_save": false,
+                "augmented_instance": [
+                    "model_record/augments/augment20",
+                    "model_record/augments/augment30",
+                    "model_record/augments/augment40",
+                    "model_record/augments/augment50",
+                    "model_record/augments/augment60"
+                ]
+            }
+        },
+        "3": {
+            "pretrained_text_model": {
+                "embedder": "model_record/text_model_weights/embedder.pkl",
+                "encoder": "model_record/text_model_weights/encoder.pkl",
+                "classifier": "model_record/text_model_weights/classifier.pkl"
+            },
+            "text_finetuner": {
+                "dataloader": {
+                    "train_batch_size": 8,
+                    "valid_batch_size": 60,
+                    "test_batch_size": 60,
+                    "shuffle": true
+                },
+                "accumulated_step": 4,
+                "epochs": 6,
+                "is_save": true,
+                "augmented_instance": [
+                    "model_record/augments/augment20",
+                    "model_record/augments/augment30",
+                    "model_record/augments/augment40",
+                    "model_record/augments/augment50",
+                    "model_record/augments/augment60",
+                    "model_record/augments/augment70"
+                ]
+            }
+        },
+
+        "4": {
+            "text_trainer": {
+                "dataloader": {
+                    "train_batch_size": 16,
+                    "valid_batch_size": 200,
+                    "test_batch_size": 200,
+                    "shuffle": true
+                },
+                "accumulated_step": 2,
+                "epochs": 12,
+                "is_save": false,
+                "augmented_instance": [
+                    "model_record/augments/augment624"
+                ]
+            }
+        },
+
+        "5": {
+            "pretrained_text_model": {
+                "embedder": "model_record/text_model_weights/embedder.pkl",
+                "encoder": "model_record/text_model_weights/encoder.pkl",
+                "classifier": "model_record/text_model_weights/classifier.pkl"
+            },
+
+            "visualizer": {
+                "batch_size": 300,
+                "proportion": 1,
+                "sim_comparison": {
+                    "is_sim_comparison": false,
+                    "comparison_dict": {
+                        "sim_0.7": [
+                            "sim_0.7/augments/augment11"
+                        ],
+                        "sim_0.8": [
+                            "sim_0.8/augments/augment11"
+                        ],
+                        "sim_0.9": [
+                            "sim_0.9/augments/augment11"
+                        ]
+                    }
+                },
+                "augmented_instance": [
+                    "model_record/augments/augment11"
+                ]
+            }
+        },
+        "6": {
+            "syntatic": {
+                "target": "test",
+                "select_method": "eda",
+                "repeat": 1,
+                "eda": {
+                    "save_path": "data/syntatic_data/sst/noise/random/mag_0.1"
+                },
+                "backtrans": {
+                    "save_path": "data/syntatic_data/sst/backtrans/batcktrans"
+                }
+            }
+        },
+        "7": {
+            "pretrained_text_model": {
+                "embedder": "model_record/text_model_weights/embedder.pkl",
+                "encoder": "model_record/text_model_weights/encoder.pkl",
+                "classifier": "model_record/text_model_weights/classifier.pkl"
+            },
+
+            "text_finetuner": {
+                "dataloader": {
+                    "train_batch_size": 16,
+                    "valid_batch_size": 300,
+                    "test_batch_size": 300,
+                    "shuffle": true
+                },
+                "accumulated_step": 2,
+                "epochs": 12,
+                "is_save": false,
+                "augmented_instance": [
+                    "/home/god/lab/Adversarial_Data_Boost/data/syntatic_data/sst/noise/random/mag_0.1_0"
+                ]
+            }
+        }
+    }
+}
